@@ -28,7 +28,8 @@ void main() {
     expect(find.text('候補: 2件'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('spinButton')));
-    await tester.pump(const Duration(milliseconds: 2300));
+    await tester.pump(const Duration(milliseconds: 2500));
+    await tester.pumpAndSettle();
 
     expect(find.textContaining('当選:'), findsOneWidget);
   });
