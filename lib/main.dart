@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math';
 
 void main() {
   runApp(const MyApp());
@@ -11,111 +12,218 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Roulette App',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.white),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const RoulettePage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class RoulettePage extends StatefulWidget {
+  const RoulettePage({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<RoulettePage> createState() => _RoulettePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _RoulettePageState extends State<RoulettePage> {
+  final TextEditingController _candidateController = TextEditingController();
+  final List<String> _candidates = [];
+  final Random _random = Random();
+  bool _isSpinning = false;
+  double _turns = 0;
+  String? _winner;
 
-  void _incrementCounter() {
+  @override
+  void dispose() {
+    _candidateController.dispose();
+    super.dispose();
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _addCandidate() {
+    final value = _candidateController.text.trim();
+    if (value.isEmpty) {
+      _showSnackBar('候補を入力してください');
+      return;
+    }
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _candidates.add(value);
+      _candidateController.clear();
+    });
+  }
+
+  void _removeCandidate(int index) {
+    setState(() {
+      _candidates.removeAt(index);
+      if (_winner != null && !_candidates.contains(_winner)) {
+        _winner = null;
+      }
+    });
+  }
+
+  Future<void> _spinRoulette() async {
+    if (_candidates.length < 2) {
+      _showSnackBar('候補を2件以上追加してください');
+      return;
+    }
+
+    final winnerIndex = _random.nextInt(_candidates.length);
+
+    setState(() {
+      _isSpinning = true;
+      _winner = null;
+      _turns += 4 + _random.nextDouble() * 2;
+    });
+
+    await Future<void>.delayed(const Duration(milliseconds: 2200));
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSpinning = false;
+      _winner = _candidates[winnerIndex];
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    final canSpin = _candidates.length >= 2 && !_isSpinning;
+
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text('ルーレット'),
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
+      body: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+            TextField(
+              key: const Key('candidateInput'),
+              controller: _candidateController,
+              enabled: !_isSpinning,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                labelText: '候補',
+                hintText: '候補名を入力',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    key: const Key('addCandidateButton'),
+                    onPressed: _isSpinning ? null : _addCandidate,
+                    icon: const Icon(Icons.add),
+                    label: const Text('追加'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    key: const Key('spinButton'),
+                    onPressed: canSpin ? _spinRoulette : null,
+                    icon: const Icon(Icons.casino),
+                    label: Text(_isSpinning ? '回転中...' : '回す'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Center(
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned(
+                    top: 0,
+                    child: Icon(
+                      Icons.arrow_drop_down,
+                      size: 40,
+                      color: Colors.red.shade400,
+                    ),
+                  ),
+                  Container(
+                    width: 220,
+                    height: 220,
+                    margin: const EdgeInsets.only(top: 14),
+                    child: AnimatedRotation(
+                      turns: _turns,
+                      duration: const Duration(milliseconds: 2200),
+                      curve: Curves.easeOutCubic,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            colors: [
+                              Theme.of(context).colorScheme.primaryContainer,
+                              Theme.of(context).colorScheme.secondaryContainer,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.primary,
+                            width: 3,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(
+                            _isSpinning ? 'SPIN' : 'READY',
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text('候補: ${_candidates.length}件'),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _candidates.isEmpty
+                  ? const Center(child: Text('候補がありません'))
+                  : ListView.builder(
+                      itemCount: _candidates.length,
+                      itemBuilder: (context, index) {
+                        return ListTile(
+                          title: Text(_candidates[index]),
+                          trailing: IconButton(
+                            key: Key('deleteCandidate-$index'),
+                            onPressed:
+                                _isSpinning ? null : () => _removeCandidate(index),
+                            icon: const Icon(Icons.close),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                _winner == null ? '結果: -' : '当選: $_winner',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
           ],
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }
